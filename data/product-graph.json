@@ -1,0 +1,691 @@
+{
+  "schemaVersion": "0.1.0",
+  "updatedAt": "2026-05-29",
+  "project": {
+    "name": "ПараВоз",
+    "repoFrontend": "https://github.com/paravoz-taxi/frontend",
+    "repoBackend": "https://github.com/paravoz-taxi/backend",
+    "productionFrontend": "https://paravoz.intezya.ru",
+    "productionBackend": "https://api.paravoz.intezya.ru",
+    "mission": "Помочь водителю быстро найти проверенную машину под такси и выйти на линию, а владельцу автопарка управлять машинами, водителями, заявками, рисками и доходностью в одном кабинете.",
+    "positioning": "Marketplace plus operating system for taxi fleet rental: catalog, booking, fleet operations, driver onboarding, future payments, documents, legal, admin and analytics."
+  },
+  "principles": [
+    {
+      "id": "principle.graph-source-of-truth",
+      "label": "Граф как источник истины",
+      "summary": "Linear хранит execution, GitHub хранит код, а product graph хранит причинную структуру: работа пользователя, потребность, гипотеза, фича, метрика, evidence."
+    },
+    {
+      "id": "principle.context-slices",
+      "label": "Контекст срезами, не всем графом",
+      "summary": "Агент получает только релевантный подграф: entry node, ближайшие jobs/needs/features/metrics, open questions и ссылки. Полный граф не надо целиком пихать в prompt."
+    },
+    {
+      "id": "principle.execution-evidence-loop",
+      "label": "Замкнутый цикл evidence",
+      "summary": "Каждая delivery-задача должна ссылаться на job/need/hypothesis, а после релиза возвращать evidence: метрика, интервью, баг, поведение пользователя."
+    }
+  ],
+  "nodeTypes": [
+    "persona",
+    "goal",
+    "job",
+    "need",
+    "hypothesis",
+    "principle",
+    "feature",
+    "metric",
+    "evidence",
+    "linear",
+    "system"
+  ],
+  "edgeTypes": [
+    "serves",
+    "has_job",
+    "has_need",
+    "motivates",
+    "tests",
+    "implemented_by",
+    "measured_by",
+    "evidenced_by",
+    "depends_on",
+    "syncs_to_linear",
+    "owned_by_system"
+  ],
+  "nodes": [
+    {
+      "id": "principle.graph-source-of-truth",
+      "type": "principle",
+      "label": "Граф как источник истины",
+      "summary": "Linear хранит execution, GitHub хранит код, а product graph хранит причинную структуру: работа пользователя, потребность, гипотеза, фича, метрика, evidence.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["principle", "product-ops"]
+    },
+    {
+      "id": "principle.context-slices",
+      "type": "principle",
+      "label": "Контекст срезами, не всем графом",
+      "summary": "Агент получает только релевантный подграф: entry node, ближайшие jobs/needs/features/metrics, open questions и ссылки.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["principle", "ai-context"]
+    },
+    {
+      "id": "principle.execution-evidence-loop",
+      "type": "principle",
+      "label": "Замкнутый цикл evidence",
+      "summary": "Каждая delivery-задача должна ссылаться на job/need/hypothesis, а после релиза возвращать evidence: метрика, интервью, баг, поведение пользователя.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["principle", "discovery", "delivery"]
+    },
+    {
+      "id": "persona.driver",
+      "type": "persona",
+      "label": "Водитель",
+      "summary": "Человек, который хочет быстро получить авто под такси, понять условия и выйти на линию без долгой переписки.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["role:driver", "marketplace:demand"],
+      "agentContext": "Не думай о водителе как о пользователе каталога. Его progress: найти реальную машину, понять экономику, пройти допуск, начать зарабатывать."
+    },
+    {
+      "id": "persona.owner",
+      "type": "persona",
+      "label": "Владелец автопарка",
+      "summary": "Поставщик машин, которому нужно сдавать авто надежным водителям, снижать простой и контролировать документы, платежи, статусы.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["role:owner", "marketplace:supply"],
+      "agentContext": "Owner job не 'вести таблицу машин', а удерживать загрузку парка и снижать риск плохого водителя, долгов, простоя и невалидных документов."
+    },
+    {
+      "id": "persona.manager",
+      "type": "persona",
+      "label": "Менеджер парка",
+      "summary": "Операционный сотрудник владельца, который обрабатывает заявки, выдачу, возврат, документы, напоминания.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "medium",
+      "tags": ["role:manager", "ops"]
+    },
+    {
+      "id": "persona.lawyer",
+      "type": "persona",
+      "label": "Юрист",
+      "summary": "Роль для проверок, договоров, спорных ситуаций, штрафов, актов и юридических документов.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "medium",
+      "tags": ["role:lawyer", "legal"]
+    },
+    {
+      "id": "persona.admin",
+      "type": "persona",
+      "label": "Админ платформы",
+      "summary": "Платформенная роль для модерации, поддержки, ручного исправления данных, аудита и управления доступами.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "high",
+      "tags": ["role:admin", "platform"]
+    },
+    {
+      "id": "goal.driver-activation",
+      "type": "goal",
+      "label": "Водитель нашел авто и вышел на линию",
+      "summary": "Ключевая бизнес-цель demand-side: довести водителя от первого визита до заявки/одобрения/аренды.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["goal", "activation", "driver"]
+    },
+    {
+      "id": "goal.owner-supply",
+      "type": "goal",
+      "label": "Владелец опубликовал авто и получил заявки",
+      "summary": "Ключевая supply-side цель: владелец создает парк/машины, публикует условия и получает поток заявок.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["goal", "supply", "owner"]
+    },
+    {
+      "id": "goal.transaction-platform",
+      "type": "goal",
+      "label": "Заявка превратилась в управляемую аренду",
+      "summary": "Переход от каталога к transaction platform: application, approval, rental, deposit, payment, documents, lifecycle.",
+      "status": "planned",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["goal", "booking", "payments"]
+    },
+    {
+      "id": "job.driver.find-car",
+      "type": "job",
+      "label": "Найти подходящую машину",
+      "summary": "Водитель хочет посмотреть реальные машины без принудительной регистрации, как в Avito-каталоге.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["job:driver", "catalog", "public"]
+    },
+    {
+      "id": "job.driver.compare-terms",
+      "type": "job",
+      "label": "Сравнить условия аренды",
+      "summary": "Водителю нужно понять цену, депозит, город, стаж, агрегаторы, класс, топливо, фото и доступность.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["job:driver", "catalog", "decision"]
+    },
+    {
+      "id": "job.driver.authenticate",
+      "type": "job",
+      "label": "Войти без потери сценария",
+      "summary": "Если водитель решил бронировать/отправлять заявку, система просит логин и возвращает его в нужный flow.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["job:driver", "auth"]
+    },
+    {
+      "id": "job.driver.apply",
+      "type": "job",
+      "label": "Подать заявку на машину",
+      "summary": "Водитель выбирает авто и отправляет rental request, чтобы парк мог рассмотреть его кандидатуру.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["job:driver", "application"]
+    },
+    {
+      "id": "job.driver.track-status",
+      "type": "job",
+      "label": "Понять статус заявки",
+      "summary": "Водитель должен видеть, что заявка создана, рассматривается, одобрена, отклонена или требует документов.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "high",
+      "tags": ["job:driver", "application", "notifications"]
+    },
+    {
+      "id": "job.driver.start-rental",
+      "type": "job",
+      "label": "Получить авто и начать работать",
+      "summary": "После одобрения водитель проходит выдачу, документы, депозит/оплату и получает активную аренду.",
+      "status": "planned",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["job:driver", "rental", "payments", "documents"]
+    },
+    {
+      "id": "job.owner.create-car",
+      "type": "job",
+      "label": "Создать автомобиль",
+      "summary": "Владелец добавляет машину с характеристиками, условиями, фото, городом и статусом публикации.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["job:owner", "fleet", "crud"]
+    },
+    {
+      "id": "job.owner.publish-car",
+      "type": "job",
+      "label": "Опубликовать авто в каталог",
+      "summary": "Парк хочет, чтобы созданная машина стала видимой водителям и приносила заявки.",
+      "status": "in-progress",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["job:owner", "catalog", "supply"]
+    },
+    {
+      "id": "job.owner.invite-driver",
+      "type": "job",
+      "label": "Добавить водителя по почте",
+      "summary": "Владелец добавляет водителя, после чего тот может войти по email и получить правильную роль driver.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["job:owner", "drivers", "auth"]
+    },
+    {
+      "id": "job.owner.review-applications",
+      "type": "job",
+      "label": "Разобрать заявки",
+      "summary": "Владелец видит очередь заявок, меняет статусы, одобряет/отклоняет и не теряет состояние после перезагрузки.",
+      "status": "in-progress",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["job:owner", "applications"]
+    },
+    {
+      "id": "job.owner.track-fleet",
+      "type": "job",
+      "label": "Контролировать парк",
+      "summary": "Владелец видит машины, статусы, простои, загрузку, доходность и карту/radar.",
+      "status": "partial",
+      "confidence": "medium",
+      "priority": "high",
+      "tags": ["job:owner", "fleet", "radar", "analytics"]
+    },
+    {
+      "id": "need.driver.real-catalog",
+      "type": "need",
+      "label": "Каталог без фейковых моков",
+      "summary": "Водитель должен видеть только реальные данные backend/DB, без внезапного появления старых mock-машин при фильтрах.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["need", "trust", "catalog"]
+    },
+    {
+      "id": "need.driver.trust-terms",
+      "type": "need",
+      "label": "Доверять условиям",
+      "summary": "Цена, депозит, требования, фото, парк, город и агрегаторы должны быть явно показаны до заявки.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["need", "decision"]
+    },
+    {
+      "id": "need.owner.reduce-idle",
+      "type": "need",
+      "label": "Снижать простой машин",
+      "summary": "Владелец зарабатывает, когда машины сданы; продукт должен сокращать путь от публикации до заявки и аренды.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["need", "economics"]
+    },
+    {
+      "id": "need.owner.control-risk",
+      "type": "need",
+      "label": "Контролировать риск водителя",
+      "summary": "Парк должен видеть документы, стаж, рейтинг, долги, историю, статус заявки и принимать решение безопасно.",
+      "status": "planned",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["need", "risk", "scoring"]
+    },
+    {
+      "id": "hypothesis.public-catalog",
+      "type": "hypothesis",
+      "label": "Публичный каталог повышает конверсию",
+      "summary": "Если неавторизованный пользователь видит каталог, больше водителей дойдут до выбора авто и регистрации.",
+      "status": "testing",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["hypothesis", "activation"]
+    },
+    {
+      "id": "hypothesis.email-invite",
+      "type": "hypothesis",
+      "label": "Email-приглашение ускоряет onboarding",
+      "summary": "Если владелец добавляет водителя по email, водитель может сразу войти и получить правильную роль без ручных env-настроек.",
+      "status": "testing",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["hypothesis", "drivers", "auth"]
+    },
+    {
+      "id": "hypothesis.role-state",
+      "type": "hypothesis",
+      "label": "Роль должна быть серверной, а не локальной",
+      "summary": "Если active role берется из session/me и проверяется backend, исчезают двойные табы, слеты состояния и неверные кабинеты.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["hypothesis", "rbac", "auth"]
+    },
+    {
+      "id": "feature.backend-go",
+      "type": "feature",
+      "label": "Go backend modular monolith",
+      "summary": "Backend на Go: HTTP API, PostgreSQL source of truth, service boundaries auth/catalog/fleet/drivers/applications.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["feature", "backend", "architecture"],
+      "links": ["https://github.com/paravoz-taxi/backend"]
+    },
+    {
+      "id": "feature.auth-yandex-email",
+      "type": "feature",
+      "label": "Yandex OAuth + email login",
+      "summary": "Yandex OAuth для production-входа и email-login для MVP/testing. Session cookie хранится на backend.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["feature", "auth", "rbac"]
+    },
+    {
+      "id": "feature.catalog-api",
+      "type": "feature",
+      "label": "Реальный catalog API",
+      "summary": "GET catalog/cars, facets, detail, favorite, rental request. Данные хранятся в catalog_cars JSONB и seed migration.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["feature", "catalog", "postgres"]
+    },
+    {
+      "id": "feature.fleet-crud",
+      "type": "feature",
+      "label": "Fleet cars CRUD",
+      "summary": "Владелец может создавать автомобили; backend сохраняет состояние в БД и dashboard/fleet читают API.",
+      "status": "partial",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["feature", "fleet", "crud"]
+    },
+    {
+      "id": "feature.driver-invite",
+      "type": "feature",
+      "label": "Добавление водителя по email",
+      "summary": "Owner создает driver row и user/session identity path, водитель входит по email и получает роль driver.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["feature", "drivers", "auth"]
+    },
+    {
+      "id": "feature.application-status",
+      "type": "feature",
+      "label": "Статусы заявок через backend",
+      "summary": "Applications можно получить и обновить через API; состояние не должно откатываться после перезагрузки.",
+      "status": "partial",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["feature", "applications"]
+    },
+    {
+      "id": "feature.fleet-radar",
+      "type": "feature",
+      "label": "Fleet radar на Яндекс Картах",
+      "summary": "Страница radar для владельца с картой и mock-позициями; будущий источник - telematics/fleet-service.",
+      "status": "mocked",
+      "confidence": "medium",
+      "priority": "medium",
+      "tags": ["feature", "maps", "fleet"]
+    },
+    {
+      "id": "feature.github-ci-pages",
+      "type": "feature",
+      "label": "CI/CD и Pages",
+      "summary": "Frontend/backend имеют CI/Docker workflows; product graph публикуется как GitHub Pages static site.",
+      "status": "in-progress",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["feature", "devops", "pages"]
+    },
+    {
+      "id": "system.frontend",
+      "type": "system",
+      "label": "Frontend",
+      "summary": "React/TanStack frontend. Current local path: /Users/ramchike/Downloads/paravoz (2).",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["system", "frontend"],
+      "links": ["https://github.com/paravoz-taxi/frontend"]
+    },
+    {
+      "id": "system.backend",
+      "type": "system",
+      "label": "Backend",
+      "summary": "Go API with PostgreSQL, modular monolith boundaries, migrations and tests. Current local path: /Users/ramchike/Downloads/paravoz-backend.",
+      "status": "implemented",
+      "confidence": "high",
+      "priority": "critical",
+      "tags": ["system", "backend"],
+      "links": ["https://github.com/paravoz-taxi/backend"]
+    },
+    {
+      "id": "system.linear",
+      "type": "system",
+      "label": "Linear execution layer",
+      "summary": "Linear should store Initiatives, Projects, Issues, Customer Requests and execution state, synced from graph IDs.",
+      "status": "planned",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["system", "linear", "sync"]
+    },
+    {
+      "id": "system.graph-rag",
+      "type": "system",
+      "label": "AI graph retrieval layer",
+      "summary": "Future backend/service should retrieve small graph slices by job_id/issue_id instead of loading the whole graph into agent context.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "high",
+      "tags": ["system", "ai", "graphrag"]
+    },
+    {
+      "id": "metric.catalog-visit-to-application",
+      "type": "metric",
+      "label": "Catalog visit → application",
+      "summary": "Доля посетителей каталога, которые дошли до отправки заявки.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["metric", "activation"]
+    },
+    {
+      "id": "metric.owner-car-to-application",
+      "type": "metric",
+      "label": "Created car → first application",
+      "summary": "Сколько времени проходит от публикации машины до первой заявки.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["metric", "supply"]
+    },
+    {
+      "id": "metric.application-approval-time",
+      "type": "metric",
+      "label": "Application approval time",
+      "summary": "Среднее время от заявки до решения владельца.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "high",
+      "tags": ["metric", "applications"]
+    },
+    {
+      "id": "metric.role-state-errors",
+      "type": "metric",
+      "label": "Role state errors",
+      "summary": "Число случаев, когда пользователь видит неверную роль, двойной active tab или слет кабинета.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "high",
+      "tags": ["metric", "quality", "auth"]
+    },
+    {
+      "id": "evidence.founder-requests",
+      "type": "evidence",
+      "label": "Founder/user requests in chat",
+      "summary": "Текущие product decisions основаны на требованиях из диалога: Go backend, роли, Yandex auth, public catalog, Avito seed, owner radar, Linear/JTBD graph.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["evidence", "qualitative"]
+    },
+    {
+      "id": "evidence.local-qa",
+      "type": "evidence",
+      "label": "Local QA and tests",
+      "summary": "Backend go test/race/docker build, frontend api-linkage/build/docker build, local browser role-state QA were run for recent releases.",
+      "status": "active",
+      "confidence": "high",
+      "priority": "high",
+      "tags": ["evidence", "qa"]
+    },
+    {
+      "id": "linear.driver-activation",
+      "type": "linear",
+      "label": "Linear Initiative: Driver Activation",
+      "summary": "Initiative for public catalog, auth gate, application creation and status visibility.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["linear", "initiative"]
+    },
+    {
+      "id": "linear.owner-operating-system",
+      "type": "linear",
+      "label": "Linear Initiative: Owner OS",
+      "summary": "Initiative for fleet CRUD, driver invite, applications queue, radar and dashboard.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["linear", "initiative"]
+    },
+    {
+      "id": "linear.transaction-platform",
+      "type": "linear",
+      "label": "Linear Initiative: Transaction Platform",
+      "summary": "Initiative for booking/rental lifecycle, payments, deposits, documents and disputes.",
+      "status": "planned",
+      "confidence": "medium",
+      "priority": "critical",
+      "tags": ["linear", "initiative"]
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "persona.driver", "target": "goal.driver-activation", "type": "serves", "label": "primary beneficiary" },
+    { "id": "e2", "source": "persona.owner", "target": "goal.owner-supply", "type": "serves", "label": "primary beneficiary" },
+    { "id": "e3", "source": "persona.driver", "target": "job.driver.find-car", "type": "has_job" },
+    { "id": "e4", "source": "persona.driver", "target": "job.driver.compare-terms", "type": "has_job" },
+    { "id": "e5", "source": "persona.driver", "target": "job.driver.authenticate", "type": "has_job" },
+    { "id": "e6", "source": "persona.driver", "target": "job.driver.apply", "type": "has_job" },
+    { "id": "e7", "source": "persona.driver", "target": "job.driver.track-status", "type": "has_job" },
+    { "id": "e8", "source": "persona.driver", "target": "job.driver.start-rental", "type": "has_job" },
+    { "id": "e9", "source": "persona.owner", "target": "job.owner.create-car", "type": "has_job" },
+    { "id": "e10", "source": "persona.owner", "target": "job.owner.publish-car", "type": "has_job" },
+    { "id": "e11", "source": "persona.owner", "target": "job.owner.invite-driver", "type": "has_job" },
+    { "id": "e12", "source": "persona.owner", "target": "job.owner.review-applications", "type": "has_job" },
+    { "id": "e13", "source": "persona.owner", "target": "job.owner.track-fleet", "type": "has_job" },
+    { "id": "e14", "source": "job.driver.find-car", "target": "job.driver.compare-terms", "type": "depends_on", "label": "then" },
+    { "id": "e15", "source": "job.driver.compare-terms", "target": "job.driver.authenticate", "type": "depends_on", "label": "before booking" },
+    { "id": "e16", "source": "job.driver.authenticate", "target": "job.driver.apply", "type": "depends_on", "label": "required for application" },
+    { "id": "e17", "source": "job.driver.apply", "target": "job.driver.track-status", "type": "depends_on", "label": "after request" },
+    { "id": "e18", "source": "job.driver.track-status", "target": "job.driver.start-rental", "type": "depends_on", "label": "if approved" },
+    { "id": "e19", "source": "job.owner.create-car", "target": "job.owner.publish-car", "type": "depends_on" },
+    { "id": "e20", "source": "job.owner.publish-car", "target": "job.owner.review-applications", "type": "depends_on" },
+    { "id": "e21", "source": "job.owner.invite-driver", "target": "job.owner.review-applications", "type": "depends_on" },
+    { "id": "e22", "source": "job.driver.find-car", "target": "need.driver.real-catalog", "type": "has_need" },
+    { "id": "e23", "source": "job.driver.compare-terms", "target": "need.driver.trust-terms", "type": "has_need" },
+    { "id": "e24", "source": "job.owner.publish-car", "target": "need.owner.reduce-idle", "type": "has_need" },
+    { "id": "e25", "source": "job.owner.review-applications", "target": "need.owner.control-risk", "type": "has_need" },
+    { "id": "e26", "source": "need.driver.real-catalog", "target": "hypothesis.public-catalog", "type": "motivates" },
+    { "id": "e27", "source": "need.owner.reduce-idle", "target": "hypothesis.public-catalog", "type": "motivates" },
+    { "id": "e28", "source": "job.owner.invite-driver", "target": "hypothesis.email-invite", "type": "motivates" },
+    { "id": "e29", "source": "job.driver.authenticate", "target": "hypothesis.role-state", "type": "motivates" },
+    { "id": "e30", "source": "hypothesis.public-catalog", "target": "feature.catalog-api", "type": "implemented_by" },
+    { "id": "e31", "source": "hypothesis.email-invite", "target": "feature.driver-invite", "type": "implemented_by" },
+    { "id": "e32", "source": "hypothesis.role-state", "target": "feature.auth-yandex-email", "type": "implemented_by" },
+    { "id": "e33", "source": "job.owner.create-car", "target": "feature.fleet-crud", "type": "implemented_by" },
+    { "id": "e34", "source": "job.owner.review-applications", "target": "feature.application-status", "type": "implemented_by" },
+    { "id": "e35", "source": "job.owner.track-fleet", "target": "feature.fleet-radar", "type": "implemented_by" },
+    { "id": "e36", "source": "feature.catalog-api", "target": "system.backend", "type": "owned_by_system" },
+    { "id": "e37", "source": "feature.fleet-crud", "target": "system.backend", "type": "owned_by_system" },
+    { "id": "e38", "source": "feature.driver-invite", "target": "system.backend", "type": "owned_by_system" },
+    { "id": "e39", "source": "feature.auth-yandex-email", "target": "system.backend", "type": "owned_by_system" },
+    { "id": "e40", "source": "feature.catalog-api", "target": "system.frontend", "type": "owned_by_system" },
+    { "id": "e41", "source": "feature.fleet-radar", "target": "system.frontend", "type": "owned_by_system" },
+    { "id": "e42", "source": "job.driver.apply", "target": "goal.transaction-platform", "type": "motivates" },
+    { "id": "e43", "source": "job.driver.start-rental", "target": "goal.transaction-platform", "type": "motivates" },
+    { "id": "e44", "source": "job.driver.find-car", "target": "metric.catalog-visit-to-application", "type": "measured_by" },
+    { "id": "e45", "source": "job.owner.publish-car", "target": "metric.owner-car-to-application", "type": "measured_by" },
+    { "id": "e46", "source": "job.owner.review-applications", "target": "metric.application-approval-time", "type": "measured_by" },
+    { "id": "e47", "source": "job.driver.authenticate", "target": "metric.role-state-errors", "type": "measured_by" },
+    { "id": "e48", "source": "feature.backend-go", "target": "system.backend", "type": "owned_by_system" },
+    { "id": "e49", "source": "feature.github-ci-pages", "target": "system.frontend", "type": "depends_on" },
+    { "id": "e50", "source": "feature.catalog-api", "target": "evidence.local-qa", "type": "evidenced_by" },
+    { "id": "e51", "source": "feature.auth-yandex-email", "target": "evidence.local-qa", "type": "evidenced_by" },
+    { "id": "e52", "source": "feature.fleet-crud", "target": "evidence.local-qa", "type": "evidenced_by" },
+    { "id": "e53", "source": "goal.driver-activation", "target": "evidence.founder-requests", "type": "evidenced_by" },
+    { "id": "e54", "source": "goal.owner-supply", "target": "evidence.founder-requests", "type": "evidenced_by" },
+    { "id": "e55", "source": "goal.driver-activation", "target": "linear.driver-activation", "type": "syncs_to_linear" },
+    { "id": "e56", "source": "goal.owner-supply", "target": "linear.owner-operating-system", "type": "syncs_to_linear" },
+    { "id": "e57", "source": "goal.transaction-platform", "target": "linear.transaction-platform", "type": "syncs_to_linear" },
+    { "id": "e58", "source": "system.linear", "target": "linear.driver-activation", "type": "syncs_to_linear" },
+    { "id": "e59", "source": "system.graph-rag", "target": "principle.context-slices", "type": "depends_on" },
+    { "id": "e60", "source": "system.graph-rag", "target": "system.linear", "type": "depends_on" }
+  ],
+  "linearMapping": {
+    "initiative": "goal.* nodes",
+    "project": "job group or workflow stage",
+    "issue": "feature/task linked to one job_id and one hypothesis_id where possible",
+    "customerRequest": "evidence nodes linked to need/hypothesis/issue",
+    "labels": ["role:*", "job:*", "system:*", "confidence:*", "risk:*"],
+    "requiredIssueFrontMatter": ["graph_id", "job_id", "need_id", "hypothesis_id", "expected_metric", "acceptance"]
+  },
+  "agentViews": [
+    {
+      "id": "view.driver-activation",
+      "label": "Driver activation slice",
+      "entryNodes": ["goal.driver-activation", "persona.driver"],
+      "maxContextNodes": 14,
+      "includeEdgeTypes": ["serves", "has_job", "has_need", "motivates", "implemented_by", "measured_by"],
+      "prompt": "Use this slice when planning catalog, login, rental application or driver onboarding work. Prefer user progress and measurable outcomes over feature lists."
+    },
+    {
+      "id": "view.owner-supply",
+      "label": "Owner supply slice",
+      "entryNodes": ["goal.owner-supply", "persona.owner"],
+      "maxContextNodes": 14,
+      "includeEdgeTypes": ["serves", "has_job", "has_need", "motivates", "implemented_by", "measured_by"],
+      "prompt": "Use this slice when planning owner dashboard, fleet CRUD, driver invite, application review, radar or fleet analytics."
+    },
+    {
+      "id": "view.platform-architecture",
+      "label": "Platform architecture slice",
+      "entryNodes": ["system.backend", "system.frontend", "system.graph-rag", "system.linear"],
+      "maxContextNodes": 12,
+      "includeEdgeTypes": ["owned_by_system", "depends_on", "syncs_to_linear", "implemented_by"],
+      "prompt": "Use this slice when planning service boundaries, Linear sync, CI/CD, GraphRAG, migrations or agent context design."
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "q1",
+      "topic": "Driver job priority",
+      "question": "Для первого релиза важнее довести водителя до заявки или до полноценной аренды с оплатой/документами?",
+      "targetNodes": ["goal.driver-activation", "goal.transaction-platform"]
+    },
+    {
+      "id": "q2",
+      "topic": "Owner workflow",
+      "question": "Владелец сам добавляет авто вручную, импортирует из Avito/таблицы, или менеджер платформы помогает ему на старте?",
+      "targetNodes": ["job.owner.create-car", "job.owner.publish-car"]
+    },
+    {
+      "id": "q3",
+      "topic": "Trust and verification",
+      "question": "Какие проверки водителя обязательны до одобрения: паспорт, ВУ, селфи, Госуслуги, агрегатор, КБМ, история поездок?",
+      "targetNodes": ["need.owner.control-risk", "job.driver.start-rental"]
+    },
+    {
+      "id": "q4",
+      "topic": "Payments",
+      "question": "Платежный сервис должен сначала закрывать депозит, ежедневную аренду или штрафы/долги?",
+      "targetNodes": ["goal.transaction-platform"]
+    },
+    {
+      "id": "q5",
+      "topic": "Linear sync",
+      "question": "Linear должен быть read-only отражением графа или можно разрешить Linear изменять graph_id/status обратно через webhook?",
+      "targetNodes": ["system.linear", "system.graph-rag"]
+    }
+  ]
+}

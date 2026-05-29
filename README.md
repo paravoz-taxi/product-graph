@@ -36,45 +36,6 @@ npm run typecheck
 npm run build
 ```
 
-## Linear sync
-
-Сначала получи Linear API key и выбери команду:
-
-```bash
-cp .env.example .env.local
-export LINEAR_API_KEY="lin_api_..."
-npm run linear:teams
-```
-
-После этого выбери один вариант:
-
-```bash
-export LINEAR_TEAM_KEY="PAR"
-# или
-export LINEAR_TEAM_ID="..."
-```
-
-Проверить план без создания объектов:
-
-```bash
-npm run linear:plan
-```
-
-Создать Linear projects/issues:
-
-```bash
-npm run linear:sync
-```
-
-Скрипт создает Linear Projects, Issues, issue dependencies и project dependencies. Локально он пишет `linear-sync.local.json`, чтобы повторный запуск не дублировал уже созданные связи. Этот файл намеренно не коммитится.
-
-В GitHub Actions есть ручной workflow `Sync Linear`. Для него нужны secrets:
-
-- `LINEAR_API_KEY`
-- `LINEAR_TEAM_ID`
-
-Можно вместо `LINEAR_TEAM_ID` задать repository variable `LINEAR_TEAM_KEY`.
-
 ## GitHub Pages
 
 Pages собирается через `.github/workflows/pages.yml` на каждый push в `main`.

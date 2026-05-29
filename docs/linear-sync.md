@@ -35,62 +35,25 @@ acceptance:
   - unauthenticated users can browse catalog
 ```
 
-## One-way sync на старте
+## MCP-only execution
 
-Сначала безопаснее делать так:
+Linear не синкается из репозитория и не управляется GitHub Actions.
 
-```text
-graph -> Linear
-```
-
-Скрипт читает `data/product-graph.json`, создает/обновляет Initiatives/Projects/Issues и ставит labels.
-
-Linear вручную меняет delivery state, но не переписывает смысл графа.
-
-Текущая реализация в `scripts/sync-linear.mjs` делает практичный первый слой:
-
-- создает Linear Projects из крупных business workstreams;
-- создает Issues из `job`, `goal`, `feature`, `principle` и open questions;
-- создает issue relations `blocks` / `related` для Linear dependency graph;
-- создает project relations `blocks` для Linear project timeline dependency graph;
-- добавляет markdown front matter с `graph_id`;
-- проставляет labels, если Linear API разрешает их создать;
-- пишет `linear-sync.local.json`, чтобы локальный повторный запуск не дублировал объекты.
-
-Команды:
-
-```bash
-export LINEAR_API_KEY="lin_api_..."
-npm run linear:teams
-export LINEAR_TEAM_KEY="PAR"
-npm run linear:plan
-npm run linear:sync
-```
-
-GitHub Actions workflow:
+Правильный поток:
 
 ```text
-.github/workflows/linear-sync.yml
+product-graph.json -> агент читает смысл -> Linear MCP создает Projects/Issues/dependencies вручную в Linear
 ```
 
-Для него нужны GitHub Secrets:
+Репозиторий хранит только продуктовый смысл и визуализацию. Linear остается живой рабочей доской исполнения.
 
-```text
-LINEAR_API_KEY
-LINEAR_TEAM_ID
-```
+Через MCP агент должен:
 
-Или можно задать `LINEAR_TEAM_KEY` как repository variable.
-
-## Two-way sync позже
-
-После стабилизации можно добавить:
-
-```text
-Linear webhook -> sync service -> pull request to product-graph
-```
-
-Важно: webhook не должен напрямую менять `main`. Он должен открывать PR, чтобы изменение смысла/приоритета проходило review.
+- создать Linear Projects из крупных workstreams;
+- создать Issues из `job`, `feature`, `goal`, `principle` и open questions;
+- проставить dependency graph в Linear: `blocks`, `related`, parent/child;
+- добавить в описание каждой задачи `graph_id`, `job_id`, `need_id`, `hypothesis_id`, acceptance criteria;
+- не писать Linear state обратно в репозиторий автоматически.
 
 ## Почему так
 

@@ -66,7 +66,7 @@ npm run linear:plan
 npm run linear:sync
 ```
 
-Скрипт создает локальный `linear-sync.local.json`, чтобы повторный запуск не дублировал уже созданные задачи. Этот файл намеренно не коммитится.
+Скрипт создает Linear Projects, Issues, issue dependencies и project dependencies. Локально он пишет `linear-sync.local.json`, чтобы повторный запуск не дублировал уже созданные связи. Этот файл намеренно не коммитится.
 
 В GitHub Actions есть ручной workflow `Sync Linear`. Для него нужны secrets:
 

@@ -7,6 +7,11 @@ const registryPath = join(root, "linear-sync.local.json");
 const registry = existsSync(registryPath)
   ? JSON.parse(readFileSync(registryPath, "utf8"))
   : { projects: {}, issues: {}, labels: {}, updatedAt: null };
+registry.projects ??= {};
+registry.issues ??= {};
+registry.labels ??= {};
+registry.issueRelations ??= {};
+registry.projectRelations ??= {};
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
@@ -49,6 +54,9 @@ async function getWorkspace() {
       }
       projects(first: 250) {
         nodes { id name url }
+      }
+      issues(first: 250) {
+        nodes { id identifier title url }
       }
     }
   `);
@@ -279,6 +287,122 @@ const linearPlan = {
       questionIds: ["q5"],
     },
   ],
+  projectDependencies: [
+    {
+      id: "dependency.driver-activation.blocks-transaction-platform",
+      sourceProjectId: "linear.project.driver-activation",
+      targetProjectId: "linear.project.transaction-platform",
+      type: "blocks",
+      reason: "Driver catalog, auth and application flow must exist before full rental lifecycle is useful.",
+    },
+    {
+      id: "dependency.owner-os.blocks-transaction-platform",
+      sourceProjectId: "linear.project.owner-os",
+      targetProjectId: "linear.project.transaction-platform",
+      type: "blocks",
+      reason: "Owner car supply and application review must exist before booking/payment lifecycle can be operated.",
+    },
+  ],
+  issueDependencies: [
+    {
+      id: "dependency.driver-find.blocks-compare",
+      sourceGraphId: "job.driver.find-car",
+      targetGraphId: "job.driver.compare-terms",
+      type: "blocks",
+      reason: "A driver must first see real cars before comparing rental terms.",
+    },
+    {
+      id: "dependency.driver-compare.blocks-auth",
+      sourceGraphId: "job.driver.compare-terms",
+      targetGraphId: "job.driver.authenticate",
+      type: "blocks",
+      reason: "The auth gate should happen after the driver chooses an interesting car.",
+    },
+    {
+      id: "dependency.driver-auth.blocks-apply",
+      sourceGraphId: "job.driver.authenticate",
+      targetGraphId: "job.driver.apply",
+      type: "blocks",
+      reason: "Rental requests require an authenticated driver session.",
+    },
+    {
+      id: "dependency.driver-apply.blocks-status",
+      sourceGraphId: "job.driver.apply",
+      targetGraphId: "job.driver.track-status",
+      type: "blocks",
+      reason: "There is no status to track before a request exists.",
+    },
+    {
+      id: "dependency.driver-status.blocks-rental",
+      sourceGraphId: "job.driver.track-status",
+      targetGraphId: "job.driver.start-rental",
+      type: "blocks",
+      reason: "A rental starts only after an application decision path exists.",
+    },
+    {
+      id: "dependency.owner-create.blocks-publish",
+      sourceGraphId: "job.owner.create-car",
+      targetGraphId: "job.owner.publish-car",
+      type: "blocks",
+      reason: "A car must exist before it can be published to the catalog.",
+    },
+    {
+      id: "dependency.owner-publish.blocks-review",
+      sourceGraphId: "job.owner.publish-car",
+      targetGraphId: "job.owner.review-applications",
+      type: "blocks",
+      reason: "Applications depend on published car supply.",
+    },
+    {
+      id: "dependency.owner-invite.related-review",
+      sourceGraphId: "job.owner.invite-driver",
+      targetGraphId: "job.owner.review-applications",
+      type: "related",
+      reason: "Invited drivers and incoming applications are separate but connected owner workflows.",
+    },
+    {
+      id: "dependency.catalog-api.blocks-driver-find",
+      sourceGraphId: "feature.catalog-api",
+      targetGraphId: "job.driver.find-car",
+      type: "blocks",
+      reason: "The public catalog job needs real backend catalog data.",
+    },
+    {
+      id: "dependency.auth.blocks-driver-auth",
+      sourceGraphId: "feature.auth-yandex-email",
+      targetGraphId: "job.driver.authenticate",
+      type: "blocks",
+      reason: "The driver auth job needs working auth and role state.",
+    },
+    {
+      id: "dependency.fleet-crud.blocks-owner-create",
+      sourceGraphId: "feature.fleet-crud",
+      targetGraphId: "job.owner.create-car",
+      type: "blocks",
+      reason: "The owner create-car job needs real fleet CRUD persistence.",
+    },
+    {
+      id: "dependency.driver-invite.blocks-owner-invite",
+      sourceGraphId: "feature.driver-invite",
+      targetGraphId: "job.owner.invite-driver",
+      type: "blocks",
+      reason: "The owner invite-driver job needs backend user/driver creation by email.",
+    },
+    {
+      id: "dependency.application-status.blocks-owner-review",
+      sourceGraphId: "feature.application-status",
+      targetGraphId: "job.owner.review-applications",
+      type: "blocks",
+      reason: "The owner review job needs persisted application state transitions.",
+    },
+    {
+      id: "dependency.context-slices.blocks-graph-rag",
+      sourceGraphId: "principle.context-slices",
+      targetGraphId: "system.graph-rag",
+      type: "blocks",
+      reason: "GraphRAG/context service must retrieve small graph slices rather than the whole graph.",
+    },
+  ],
 };
 
 function buildIssues(project) {
@@ -388,6 +512,11 @@ async function ensureProject(project, team, workspace) {
 
 async function ensureIssue(issue, project, team, labelIds) {
   if (registry.issues[issue.graphId]) return registry.issues[issue.graphId];
+  const existing = workspaceIssueByTitle(issue.title);
+  if (existing) {
+    registry.issues[issue.graphId] = existing;
+    return existing;
+  }
   if (!apply) {
     return { id: `<dry-run:${issue.graphId}>`, identifier: "", url: "", title: issue.title };
   }
@@ -414,6 +543,100 @@ async function ensureIssue(issue, project, team, labelIds) {
   return data.issueCreate.issue;
 }
 
+let workspaceIssues = [];
+
+function workspaceIssueByTitle(title) {
+  return workspaceIssues.find((issue) => issue.title === title);
+}
+
+async function ensureIssueRelation(relation) {
+  const source = registry.issues[relation.sourceGraphId];
+  const target = registry.issues[relation.targetGraphId];
+  if (!source || !target) {
+    console.warn(
+      `Skipping issue dependency ${relation.id}: missing issue for ${relation.sourceGraphId} or ${relation.targetGraphId}`,
+    );
+    return;
+  }
+  if (registry.issueRelations[relation.id]) return registry.issueRelations[relation.id];
+  if (!apply) return undefined;
+  try {
+    const data = await gql(
+      `
+        mutation IssueRelationCreate($input: IssueRelationCreateInput!) {
+          issueRelationCreate(input: $input) {
+            success
+            issueRelation {
+              id
+              type
+              issue { id identifier title url }
+              relatedIssue { id identifier title url }
+            }
+          }
+        }
+      `,
+      {
+        input: {
+          issueId: source.id,
+          relatedIssueId: target.id,
+          type: relation.type,
+        },
+      },
+    );
+    registry.issueRelations[relation.id] = data.issueRelationCreate.issueRelation;
+    return data.issueRelationCreate.issueRelation;
+  } catch (error) {
+    console.warn(`Could not create issue dependency ${relation.id}: ${error.message}`);
+    return undefined;
+  }
+}
+
+async function ensureProjectRelation(relation) {
+  const source = registry.projects[relation.sourceProjectId];
+  const target = registry.projects[relation.targetProjectId];
+  if (!source || !target) {
+    console.warn(
+      `Skipping project dependency ${relation.id}: missing project for ${relation.sourceProjectId} or ${relation.targetProjectId}`,
+    );
+    return;
+  }
+  if (registry.projectRelations[relation.id]) return registry.projectRelations[relation.id];
+  if (!apply) return undefined;
+  try {
+    const data = await gql(
+      `
+        mutation ProjectRelationCreate($input: ProjectRelationCreateInput!) {
+          projectRelationCreate(input: $input) {
+            success
+            projectRelation {
+              id
+              type
+              anchorType
+              relatedAnchorType
+              project { id name url }
+              relatedProject { id name url }
+            }
+          }
+        }
+      `,
+      {
+        input: {
+          projectId: source.id,
+          relatedProjectId: target.id,
+          type: relation.type,
+          anchorType: "end",
+          relatedAnchorType: "start",
+        },
+      },
+    );
+    registry.projectRelations[relation.id] = data.projectRelationCreate.projectRelation;
+    return data.projectRelationCreate.projectRelation;
+  } catch (error) {
+    console.warn(`Could not create project dependency ${relation.id}: ${error.message}`);
+    return undefined;
+  }
+}
+
 function printPlan(team) {
   console.log(`Linear sync plan for team: ${team.name} (${team.key})`);
   console.log(`Mode: ${apply ? "APPLY" : "DRY RUN"}`);
@@ -425,6 +648,16 @@ function printPlan(team) {
     }
     console.log("");
   }
+  console.log("Issue dependencies:");
+  for (const relation of linearPlan.issueDependencies) {
+    console.log(`  - ${relation.sourceGraphId} ${relation.type} ${relation.targetGraphId}`);
+  }
+  console.log("");
+  console.log("Project dependencies:");
+  for (const relation of linearPlan.projectDependencies) {
+    console.log(`  - ${relation.sourceProjectId} ${relation.type} ${relation.targetProjectId}`);
+  }
+  console.log("");
 }
 
 async function main() {
@@ -439,6 +672,7 @@ async function main() {
   }
 
   const team = pickTeam(workspace.teams.nodes);
+  workspaceIssues = workspace.issues.nodes;
   if (!team) {
     console.error("Set LINEAR_TEAM_ID or LINEAR_TEAM_KEY. Available teams:");
     for (const item of workspace.teams.nodes) console.error(`- ${item.name}: ${item.id} (${item.key})`);
@@ -460,6 +694,26 @@ async function main() {
       ).filter(Boolean);
       const issue = await ensureIssue(issuePlan, project, team, labelIds);
       console.log(`  Issue ready: ${issue.identifier || issue.id} ${issue.title} ${issue.url ?? ""}`);
+    }
+  }
+
+  console.log("Creating issue dependency graph...");
+  for (const relation of linearPlan.issueDependencies) {
+    const created = await ensureIssueRelation(relation);
+    if (created) {
+      console.log(
+        `  Issue relation ready: ${created.issue?.identifier ?? relation.sourceGraphId} ${created.type} ${created.relatedIssue?.identifier ?? relation.targetGraphId}`,
+      );
+    }
+  }
+
+  console.log("Creating project dependency graph...");
+  for (const relation of linearPlan.projectDependencies) {
+    const created = await ensureProjectRelation(relation);
+    if (created) {
+      console.log(
+        `  Project relation ready: ${created.project?.name ?? relation.sourceProjectId} ${created.type} ${created.relatedProject?.name ?? relation.targetProjectId}`,
+      );
     }
   }
 

@@ -8,7 +8,10 @@
     "build": "npm run validate && tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "validate": "node scripts/validate-graph.mjs"
+    "validate": "node scripts/validate-graph.mjs",
+    "linear:teams": "node scripts/sync-linear.mjs --teams",
+    "linear:plan": "node scripts/sync-linear.mjs",
+    "linear:sync": "node scripts/sync-linear.mjs --apply"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.2",

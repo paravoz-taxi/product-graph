@@ -47,6 +47,39 @@ graph -> Linear
 
 Linear вручную меняет delivery state, но не переписывает смысл графа.
 
+Текущая реализация в `scripts/sync-linear.mjs` делает практичный первый слой:
+
+- создает Linear Projects из крупных business workstreams;
+- создает Issues из `job`, `goal`, `feature`, `principle` и open questions;
+- добавляет markdown front matter с `graph_id`;
+- проставляет labels, если Linear API разрешает их создать;
+- пишет `linear-sync.local.json`, чтобы локальный повторный запуск не дублировал объекты.
+
+Команды:
+
+```bash
+export LINEAR_API_KEY="lin_api_..."
+npm run linear:teams
+export LINEAR_TEAM_KEY="PAR"
+npm run linear:plan
+npm run linear:sync
+```
+
+GitHub Actions workflow:
+
+```text
+.github/workflows/linear-sync.yml
+```
+
+Для него нужны GitHub Secrets:
+
+```text
+LINEAR_API_KEY
+LINEAR_TEAM_ID
+```
+
+Или можно задать `LINEAR_TEAM_KEY` как repository variable.
+
 ## Two-way sync позже
 
 После стабилизации можно добавить:
